@@ -1,0 +1,19 @@
+name: CMIDiscordPunishments
+version: '${project.version}'
+main: com.lucidaps.cmidiscordpunishments.CMIDiscordPunishments
+description: Sends successful CMI punishments and warnings to Discord.
+author: LucidAPs
+api-version: '1.21.11'
+depend: [CMI]
+
+commands:
+  cmidiscordpunishments:
+    description: Reload or test CMIDiscordPunishments.
+    usage: /<command> <reload|test>
+    aliases: [cmidp]
+    permission: cmidiscordpunishments.admin
+
+permissions:
+  cmidiscordpunishments.admin:
+    description: Allows reloading and testing the Discord webhook.
+    default: op

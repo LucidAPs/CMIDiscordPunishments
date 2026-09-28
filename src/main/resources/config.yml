@@ -1,0 +1,83 @@
+# Create a webhook in the private Discord staff channel and paste its full URL here.
+# The URL is never written to the server log.
+webhook:
+  url: ''
+  username: 'CMI Punishments'
+  avatar-url: ''
+
+# Included in every Discord embed. Set this per server when using the same channel
+# for multiple Minecraft servers.
+server-name: 'Minecraft Server'
+
+delivery:
+  connect-timeout-seconds: 5
+  request-timeout-seconds: 10
+  max-retries: 3
+  queue-capacity: 250
+
+embeds:
+  footer: 'CMI moderation log'
+
+# Each action can be disabled or given a different title/color. Colors must be
+# six-digit RGB values. IP actions intentionally show the complete IP address.
+events:
+  test:
+    enabled: true
+    title: 'Webhook Test'
+    color: '#3498DB'
+  ban:
+    enabled: true
+    title: 'Player Banned'
+    color: '#E74C3C'
+  temp-ban:
+    enabled: true
+    title: 'Player Temporarily Banned'
+    color: '#E67E22'
+  ip-ban:
+    enabled: true
+    title: 'IP Address Banned'
+    color: '#C0392B'
+  temp-ip-ban:
+    enabled: true
+    title: 'IP Address Temporarily Banned'
+    color: '#D35400'
+  unban:
+    enabled: true
+    title: 'Player Unbanned'
+    color: '#2ECC71'
+  ip-unban:
+    enabled: true
+    title: 'IP Address Unbanned'
+    color: '#27AE60'
+  kick:
+    enabled: true
+    title: 'Player Kicked'
+    color: '#F1C40F'
+  jail:
+    enabled: true
+    title: 'Player Jailed'
+    color: '#E67E22'
+  unjail:
+    enabled: true
+    title: 'Player Released From Jail'
+    color: '#2ECC71'
+  mute:
+    enabled: true
+    title: 'Player Muted'
+    color: '#9B59B6'
+  unmute:
+    enabled: true
+    title: 'Player Unmuted'
+    color: '#2ECC71'
+  warn:
+    enabled: true
+    title: 'Player Warned'
+    color: '#F39C12'
+
+# Built-in /mute, /unmute, /unjail, their cmi: namespaced forms, and
+# /cmi <subcommand> are always recognized. Add direct custom alias labels here.
+commands:
+  aliases:
+    mute: []
+    unmute: []
+    unjail: []
