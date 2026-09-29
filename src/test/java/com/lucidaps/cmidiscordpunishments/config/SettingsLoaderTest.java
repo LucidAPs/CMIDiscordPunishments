@@ -5,36 +5,59 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SettingsLoaderTest {
     @Test
-    void acceptsDiscordWebhookAndHexColors() throws Exception {
+    void acceptsDiscordBotDestinationAndHexColors() throws Exception {
         YamlConfiguration config = baseConfig();
-        config.set("webhook.url", "https://discord.com/api/webhooks/123/token");
+        config.set("discord.bot-token", "secret-token");
+        config.set("discord.channel-id", "123456789012345678");
         config.set("events.ban.color", "#123ABC");
         config.set("commands.aliases.mute", java.util.List.of("/silenceplayer"));
 
         PluginSettings settings = SettingsLoader.load(config);
-        assertTrue(settings.webhook().isPresent());
+        assertTrue(settings.discord().isPresent());
+        assertEquals("secret-token", settings.discord().orElseThrow().botToken());
+        assertEquals("123456789012345678", settings.discord().orElseThrow().channelId());
+        assertFalse(settings.discord().orElseThrow().toString().contains("secret-token"));
         assertEquals(0x123ABC, settings.style(PunishmentType.BAN).color());
         assertTrue(settings.muteAliases().contains("silenceplayer"));
         assertTrue(settings.muteAliases().contains("mute"));
     }
 
     @Test
-    void blankWebhookDisablesDeliveryWithoutInvalidatingConfig() throws Exception {
+    void blankDiscordDestinationDisablesDeliveryWithoutInvalidatingConfig() throws Exception {
         PluginSettings settings = SettingsLoader.load(baseConfig());
-        assertTrue(settings.webhook().isEmpty());
+        assertTrue(settings.discord().isEmpty());
     }
 
     @Test
-    void rejectsNonDiscordAndOutOfRangeSettings() {
-        YamlConfiguration badUrl = baseConfig();
-        badUrl.set("webhook.url", "https://example.com/webhooks/123/token");
-        assertThrows(SettingsException.class, () -> SettingsLoader.load(badUrl));
+    void rejectsPartialOrInvalidDiscordDestination() {
+        YamlConfiguration tokenOnly = baseConfig();
+        tokenOnly.set("discord.bot-token", "secret-token");
+        assertThrows(SettingsException.class, () -> SettingsLoader.load(tokenOnly));
 
+        YamlConfiguration invalidChannel = baseConfig();
+        invalidChannel.set("discord.bot-token", "secret-token");
+        invalidChannel.set("discord.channel-id", "not-a-channel");
+        assertThrows(SettingsException.class, () -> SettingsLoader.load(invalidChannel));
+
+        YamlConfiguration zeroChannel = baseConfig();
+        zeroChannel.set("discord.bot-token", "secret-token");
+        zeroChannel.set("discord.channel-id", "0");
+        assertThrows(SettingsException.class, () -> SettingsLoader.load(zeroChannel));
+
+        YamlConfiguration overflowChannel = baseConfig();
+        overflowChannel.set("discord.bot-token", "secret-token");
+        overflowChannel.set("discord.channel-id", "18446744073709551616");
+        assertThrows(SettingsException.class, () -> SettingsLoader.load(overflowChannel));
+    }
+
+    @Test
+    void rejectsOutOfRangeDeliverySettings() {
         YamlConfiguration badRetries = baseConfig();
         badRetries.set("delivery.max-retries", 99);
         assertThrows(SettingsException.class, () -> SettingsLoader.load(badRetries));
@@ -42,7 +65,8 @@ class SettingsLoaderTest {
 
     private static YamlConfiguration baseConfig() {
         YamlConfiguration config = new YamlConfiguration();
-        config.set("webhook.url", "");
+        config.set("discord.bot-token", "");
+        config.set("discord.channel-id", "");
         config.set("delivery.connect-timeout-seconds", 5);
         config.set("delivery.request-timeout-seconds", 10);
         config.set("delivery.max-retries", 3);

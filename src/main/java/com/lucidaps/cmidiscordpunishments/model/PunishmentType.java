@@ -1,7 +1,7 @@
 package com.lucidaps.cmidiscordpunishments.model;
 
 public enum PunishmentType {
-    TEST("test", "Webhook Test", 0x3498DB),
+    TEST("test", "Discord Bot Test", 0x3498DB),
     BAN("ban", "Player Banned", 0xE74C3C),
     TEMP_BAN("temp-ban", "Player Temporarily Banned", 0xE67E22),
     IP_BAN("ip-ban", "IP Address Banned", 0xC0392B),

@@ -3,6 +3,7 @@ package com.lucidaps.cmidiscordpunishments.discord;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.lucidaps.cmidiscordpunishments.config.DiscordDestination;
 import com.lucidaps.cmidiscordpunishments.config.PluginSettings;
 import com.lucidaps.cmidiscordpunishments.model.PunishmentReport;
 
@@ -28,13 +29,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public final class WebhookDispatcher implements AutoCloseable {
+public final class DiscordBotDispatcher implements AutoCloseable {
+    private static final URI DISCORD_API_BASE = URI.create("https://discord.com/api/v10/");
     private static final Duration DEFAULT_RETRY_DELAY = Duration.ofSeconds(1);
     private static final long QUEUE_WARNING_INTERVAL_MILLIS = 60_000L;
 
     private final Logger logger;
     private final DiscordEmbedRenderer renderer;
     private final Duration retryBaseDelay;
+    private final URI apiBaseUri;
     private final AtomicReference<PluginSettings> settings;
     private final ScheduledThreadPoolExecutor executor;
     private final Deque<QueuedReport> queue = new ArrayDeque<>();
@@ -44,20 +47,22 @@ public final class WebhookDispatcher implements AutoCloseable {
     private volatile HttpClient httpClient;
     private volatile Duration clientConnectTimeout;
 
-    public WebhookDispatcher(PluginSettings initialSettings, Logger logger) {
-        this(initialSettings, logger, new DiscordEmbedRenderer(), DEFAULT_RETRY_DELAY);
+    public DiscordBotDispatcher(PluginSettings initialSettings, Logger logger) {
+        this(initialSettings, logger, new DiscordEmbedRenderer(), DEFAULT_RETRY_DELAY, DISCORD_API_BASE);
     }
 
-    WebhookDispatcher(
+    DiscordBotDispatcher(
         PluginSettings initialSettings,
         Logger logger,
         DiscordEmbedRenderer renderer,
-        Duration retryBaseDelay
+        Duration retryBaseDelay,
+        URI apiBaseUri
     ) {
         this.settings = new AtomicReference<>(Objects.requireNonNull(initialSettings, "initialSettings"));
         this.logger = Objects.requireNonNull(logger, "logger");
         this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.retryBaseDelay = Objects.requireNonNull(retryBaseDelay, "retryBaseDelay");
+        this.apiBaseUri = withTrailingSlash(Objects.requireNonNull(apiBaseUri, "apiBaseUri"));
         this.clientConnectTimeout = initialSettings.connectTimeout();
         this.httpClient = buildClient(clientConnectTimeout);
         this.executor = new ScheduledThreadPoolExecutor(1, daemonThreadFactory());
@@ -82,14 +87,14 @@ public final class WebhookDispatcher implements AutoCloseable {
                 new DeliveryResult(DeliveryStatus.FILTERED, 0, "This action is disabled in config.yml")
             );
         }
-        if (current.webhook().isEmpty()) {
+        if (current.discord().isEmpty()) {
             return CompletableFuture.completedFuture(
-                new DeliveryResult(DeliveryStatus.DISABLED, 0, "No Discord webhook is configured")
+                new DeliveryResult(DeliveryStatus.DISABLED, 0, "No Discord bot destination is configured")
             );
         }
         if (!accepting.get()) {
             return CompletableFuture.completedFuture(
-                new DeliveryResult(DeliveryStatus.SHUTDOWN, 0, "Webhook dispatcher is shutting down")
+                new DeliveryResult(DeliveryStatus.SHUTDOWN, 0, "Discord dispatcher is shutting down")
             );
         }
 
@@ -98,7 +103,7 @@ public final class WebhookDispatcher implements AutoCloseable {
             if (queue.size() >= current.queueCapacity()) {
                 warnQueueFull();
                 return CompletableFuture.completedFuture(
-                    new DeliveryResult(DeliveryStatus.QUEUE_FULL, 0, "Webhook queue is full")
+                    new DeliveryResult(DeliveryStatus.QUEUE_FULL, 0, "Discord delivery queue is full")
                 );
             }
             queue.addLast(queued);
@@ -185,15 +190,17 @@ public final class WebhookDispatcher implements AutoCloseable {
 
     private AttemptResult attempt(QueuedReport item) {
         PluginSettings current = settings.get();
-        Optional<URI> webhook = current.webhook();
-        if (webhook.isEmpty()) {
-            return AttemptResult.done(DeliveryStatus.DISABLED, 0, "No Discord webhook is configured");
+        Optional<DiscordDestination> configured = current.discord();
+        if (configured.isEmpty()) {
+            return AttemptResult.done(DeliveryStatus.DISABLED, 0, "No Discord bot destination is configured");
         }
 
+        DiscordDestination destination = configured.get();
         try {
             String body = renderer.render(item.report, current);
-            HttpRequest request = HttpRequest.newBuilder(webhook.get())
+            HttpRequest request = HttpRequest.newBuilder(messageEndpoint(destination.channelId()))
                 .timeout(current.requestTimeout())
+                .header("Authorization", "Bot " + destination.botToken())
                 .header("Content-Type", "application/json; charset=utf-8")
                 .header("User-Agent", "CMIDiscordPunishments/1.0.0")
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
@@ -209,22 +216,36 @@ public final class WebhookDispatcher implements AutoCloseable {
             if (status >= 500 && status < 600 && canRetry(item, current)) {
                 return AttemptResult.retry(exponentialDelay(item.attempts));
             }
-            logger.warning("Discord webhook rejected a report with HTTP " + status + ".");
-            return AttemptResult.done(DeliveryStatus.FAILED, status, "Discord returned HTTP " + status);
+            logger.warning("Discord rejected a punishment report with HTTP " + status + ".");
+            return AttemptResult.done(DeliveryStatus.FAILED, status, clientFailureMessage(status));
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             return AttemptResult.done(DeliveryStatus.SHUTDOWN, 0, "Delivery was interrupted");
         } catch (IOException exception) {
             if (canRetry(item, current)) {
-                logger.log(Level.FINE, "Discord webhook delivery failed and will be retried.", exception);
+                logger.log(Level.FINE, "Discord bot delivery failed and will be retried.", exception);
                 return AttemptResult.retry(exponentialDelay(item.attempts));
             }
-            logger.log(Level.WARNING, "Discord webhook delivery failed after all retries: " + exception.getMessage());
+            logger.log(Level.WARNING, "Discord bot delivery failed after all retries: " + exception.getMessage());
             return AttemptResult.done(DeliveryStatus.FAILED, 0, "Network error: " + exception.getMessage());
         } catch (RuntimeException exception) {
-            logger.log(Level.WARNING, "Could not build or send a Discord punishment report.", exception);
-            return AttemptResult.done(DeliveryStatus.FAILED, 0, "Could not build the Discord report");
+            logger.warning("Could not build or send a Discord punishment report ("
+                + exception.getClass().getSimpleName() + ").");
+            return AttemptResult.done(DeliveryStatus.FAILED, 0, "Could not build or send the Discord report");
         }
+    }
+
+    private URI messageEndpoint(String channelId) {
+        return apiBaseUri.resolve("channels/" + channelId + "/messages");
+    }
+
+    private String clientFailureMessage(int status) {
+        return switch (status) {
+            case 401 -> "Discord rejected the configured bot token (HTTP 401)";
+            case 403 -> "Discord denied the bot permission to send embeds in the configured channel (HTTP 403)";
+            case 404 -> "The configured Discord channel was not found or is inaccessible (HTTP 404)";
+            default -> "Discord returned HTTP " + status;
+        };
     }
 
     private boolean canRetry(QueuedReport item, PluginSettings current) {
@@ -293,8 +314,13 @@ public final class WebhookDispatcher implements AutoCloseable {
         long now = System.currentTimeMillis();
         long previous = lastQueueWarning.get();
         if (now - previous >= QUEUE_WARNING_INTERVAL_MILLIS && lastQueueWarning.compareAndSet(previous, now)) {
-            logger.warning("Discord webhook queue is full; new punishment reports are being dropped.");
+            logger.warning("Discord delivery queue is full; new punishment reports are being dropped.");
         }
+    }
+
+    private static URI withTrailingSlash(URI uri) {
+        String value = uri.toString();
+        return value.endsWith("/") ? uri : URI.create(value + "/");
     }
 
     private static HttpClient buildClient(Duration connectTimeout) {
@@ -306,7 +332,7 @@ public final class WebhookDispatcher implements AutoCloseable {
 
     private static ThreadFactory daemonThreadFactory() {
         return runnable -> {
-            Thread thread = new Thread(runnable, "CMIDiscordPunishments-Webhook");
+            Thread thread = new Thread(runnable, "CMIDiscordPunishments-DiscordBot");
             thread.setDaemon(true);
             return thread;
         };

@@ -1,9 +1,9 @@
-# Create a webhook in the private Discord staff channel and paste its full URL here.
-# The URL is never written to the server log.
-webhook:
-  url: ''
-  username: 'CMI Punishments'
-  avatar-url: ''
+# Create a Discord bot, invite it to your server, and paste its token here.
+# Enable Discord Developer Mode and copy the destination channel ID.
+# The token is a secret and is never written to the server log.
+discord:
+  bot-token: ''
+  channel-id: ''
 
 # Included in every Discord embed. Set this per server when using the same channel
 # for multiple Minecraft servers.
@@ -23,7 +23,7 @@ embeds:
 events:
   test:
     enabled: true
-    title: 'Webhook Test'
+    title: 'Discord Bot Test'
     color: '#3498DB'
   ban:
     enabled: true

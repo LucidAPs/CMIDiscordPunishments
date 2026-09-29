@@ -3,7 +3,6 @@ package com.lucidaps.cmidiscordpunishments.discord;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import com.lucidaps.cmidiscordpunishments.TestSettings;
-import com.lucidaps.cmidiscordpunishments.config.PluginSettings;
 import com.lucidaps.cmidiscordpunishments.model.PunishmentReport;
 import com.lucidaps.cmidiscordpunishments.model.PunishmentType;
 import org.junit.jupiter.api.AfterEach;
@@ -23,11 +22,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class WebhookDispatcherTest {
+class DiscordBotDispatcherTest {
     private HttpServer server;
-    private WebhookDispatcher dispatcher;
+    private DiscordBotDispatcher dispatcher;
 
     @AfterEach
     void tearDown() {
@@ -40,17 +40,29 @@ class WebhookDispatcherTest {
     }
 
     @Test
-    void sendsJsonPayload() throws Exception {
+    void sendsBotAuthorizedJsonPayloadToConfiguredChannel() throws Exception {
+        AtomicReference<String> method = new AtomicReference<>();
+        AtomicReference<String> path = new AtomicReference<>();
+        AtomicReference<String> authorization = new AtomicReference<>();
         AtomicReference<String> body = new AtomicReference<>();
         startServer(exchange -> {
+            method.set(exchange.getRequestMethod());
+            path.set(exchange.getRequestURI().getPath());
+            authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
             body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            respond(exchange, 204, "");
+            respond(exchange, 200, "{}");
         });
 
         DeliveryResult result = createDispatcher().submit(report("Spam")).get(3, TimeUnit.SECONDS);
+
         assertEquals(DeliveryStatus.DELIVERED, result.status());
+        assertEquals("POST", method.get());
+        assertEquals("/api/v10/channels/" + TestSettings.CHANNEL_ID + "/messages", path.get());
+        assertEquals("Bot " + TestSettings.BOT_TOKEN, authorization.get());
         assertTrue(body.get().contains("Player Warned"));
         assertTrue(body.get().contains("Spam"));
+        assertFalse(body.get().contains("username"));
+        assertFalse(body.get().contains("avatar_url"));
     }
 
     @Test
@@ -67,7 +79,7 @@ class WebhookDispatcherTest {
             } else if (attempt == 2) {
                 respond(exchange, 503, "try again");
             } else {
-                respond(exchange, 204, "");
+                respond(exchange, 200, "{}");
             }
         });
 
@@ -92,14 +104,60 @@ class WebhookDispatcherTest {
         });
 
         DeliveryResult result = createDispatcher().submit(report("Bad")).get(3, TimeUnit.SECONDS);
+
         assertEquals(DeliveryStatus.FAILED, result.status());
         assertEquals(400, result.httpStatus());
+        assertEquals("Discord returned HTTP 400", result.message());
         assertEquals(1, requests.get());
     }
 
     @Test
+    void returnsSafeDiagnosticsForBotAuthenticationAndChannelErrors() throws Exception {
+        int[] statuses = {401, 403, 404};
+        String[] messages = {
+            "bot token",
+            "permission",
+            "channel was not found"
+        };
+        AtomicInteger requests = new AtomicInteger();
+        startServer(exchange -> respond(exchange, statuses[requests.getAndIncrement()], "rejected"));
+        createDispatcher();
+
+        for (int index = 0; index < statuses.length; index++) {
+            DeliveryResult result = dispatcher.submit(report("Failure " + index)).get(3, TimeUnit.SECONDS);
+            assertEquals(DeliveryStatus.FAILED, result.status());
+            assertEquals(statuses[index], result.httpStatus());
+            assertTrue(result.message().contains(messages[index]));
+            assertFalse(result.message().contains(TestSettings.BOT_TOKEN));
+        }
+        assertEquals(3, requests.get());
+    }
+
+    @Test
+    void usesUpdatedTokenAndChannelForNewDeliveries() throws Exception {
+        List<String> paths = new ArrayList<>();
+        List<String> authorizations = new ArrayList<>();
+        startServer(exchange -> {
+            paths.add(exchange.getRequestURI().getPath());
+            authorizations.add(exchange.getRequestHeaders().getFirst("Authorization"));
+            respond(exchange, 200, "{}");
+        });
+        createDispatcher();
+
+        dispatcher.submit(report("Before reload")).get(3, TimeUnit.SECONDS);
+        dispatcher.updateSettings(TestSettings.create("updated-token", "987654321098765432"));
+        dispatcher.submit(report("After reload")).get(3, TimeUnit.SECONDS);
+
+        assertEquals(List.of(
+            "/api/v10/channels/" + TestSettings.CHANNEL_ID + "/messages",
+            "/api/v10/channels/987654321098765432/messages"
+        ), paths);
+        assertEquals(List.of("Bot " + TestSettings.BOT_TOKEN, "Bot updated-token"), authorizations);
+    }
+
+    @Test
     void rejectsReportsWhenDisabled() throws Exception {
-        dispatcher = new WebhookDispatcher(TestSettings.create(null), Logger.getAnonymousLogger());
+        dispatcher = new DiscordBotDispatcher(TestSettings.disabled(), Logger.getAnonymousLogger());
         DeliveryResult result = dispatcher.submit(report("Disabled")).get(1, TimeUnit.SECONDS);
         assertEquals(DeliveryStatus.DISABLED, result.status());
     }
@@ -115,13 +173,14 @@ class WebhookDispatcherTest {
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
             }
-            respond(exchange, 204, "");
+            respond(exchange, 200, "{}");
         });
-        dispatcher = new WebhookDispatcher(
-            TestSettings.create(serverUri(), 1),
+        dispatcher = new DiscordBotDispatcher(
+            TestSettings.create(1),
             Logger.getAnonymousLogger(),
             new DiscordEmbedRenderer(),
-            Duration.ofMillis(10)
+            Duration.ofMillis(10),
+            apiBaseUri()
         );
 
         var first = dispatcher.submit(report("First"));
@@ -133,13 +192,13 @@ class WebhookDispatcherTest {
         assertEquals(DeliveryStatus.DELIVERED, first.get(2, TimeUnit.SECONDS).status());
     }
 
-    private WebhookDispatcher createDispatcher() {
-        PluginSettings settings = TestSettings.create(serverUri());
-        dispatcher = new WebhookDispatcher(
-            settings,
+    private DiscordBotDispatcher createDispatcher() {
+        dispatcher = new DiscordBotDispatcher(
+            TestSettings.create(),
             Logger.getAnonymousLogger(),
             new DiscordEmbedRenderer(),
-            Duration.ofMillis(10)
+            Duration.ofMillis(10),
+            apiBaseUri()
         );
         return dispatcher;
     }
@@ -154,12 +213,12 @@ class WebhookDispatcherTest {
 
     private void startServer(ExchangeHandler handler) throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/webhook", exchange -> handler.handle(exchange));
+        server.createContext("/", exchange -> handler.handle(exchange));
         server.start();
     }
 
-    private URI serverUri() {
-        return URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/webhook");
+    private URI apiBaseUri() {
+        return URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/api/v10/");
     }
 
     private static void respond(HttpExchange exchange, int status, String body) throws IOException {

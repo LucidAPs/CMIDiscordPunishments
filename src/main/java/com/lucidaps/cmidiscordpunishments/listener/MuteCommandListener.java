@@ -9,7 +9,7 @@ import com.lucidaps.cmidiscordpunishments.command.ParsedCommand;
 import com.lucidaps.cmidiscordpunishments.command.PunishmentCommandParser;
 import com.lucidaps.cmidiscordpunishments.command.TrackedCommand;
 import com.lucidaps.cmidiscordpunishments.config.PluginSettings;
-import com.lucidaps.cmidiscordpunishments.discord.WebhookDispatcher;
+import com.lucidaps.cmidiscordpunishments.discord.DiscordBotDispatcher;
 import com.lucidaps.cmidiscordpunishments.model.PunishmentReport;
 import com.lucidaps.cmidiscordpunishments.model.PunishmentType;
 import org.bukkit.command.CommandSender;
@@ -27,14 +27,14 @@ import java.util.logging.Level;
 public final class MuteCommandListener implements Listener {
     private final CMIDiscordPunishments plugin;
     private final Supplier<PluginSettings> settings;
-    private final WebhookDispatcher dispatcher;
+    private final DiscordBotDispatcher dispatcher;
     private final CommandContextStore contextStore;
     private final PunishmentCommandParser parser = new PunishmentCommandParser();
 
     public MuteCommandListener(
         CMIDiscordPunishments plugin,
         Supplier<PluginSettings> settings,
-        WebhookDispatcher dispatcher,
+        DiscordBotDispatcher dispatcher,
         CommandContextStore contextStore
     ) {
         this.plugin = plugin;

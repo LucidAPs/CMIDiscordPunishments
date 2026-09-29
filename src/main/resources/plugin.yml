@@ -15,5 +15,5 @@ commands:
 
 permissions:
   cmidiscordpunishments.admin:
-    description: Allows reloading and testing the Discord webhook.
+    description: Allows reloading and testing Discord bot delivery.
     default: op

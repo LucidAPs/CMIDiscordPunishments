@@ -2,7 +2,7 @@ package com.lucidaps.cmidiscordpunishments.command;
 
 import com.lucidaps.cmidiscordpunishments.CMIDiscordPunishments;
 import com.lucidaps.cmidiscordpunishments.discord.DeliveryResult;
-import com.lucidaps.cmidiscordpunishments.discord.WebhookDispatcher;
+import com.lucidaps.cmidiscordpunishments.discord.DiscordBotDispatcher;
 import com.lucidaps.cmidiscordpunishments.model.PunishmentReport;
 import com.lucidaps.cmidiscordpunishments.model.PunishmentType;
 import net.kyori.adventure.text.Component;
@@ -24,9 +24,9 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
         .append(Component.text("] ", NamedTextColor.DARK_GRAY));
 
     private final CMIDiscordPunishments plugin;
-    private final WebhookDispatcher dispatcher;
+    private final DiscordBotDispatcher dispatcher;
 
-    public AdminCommand(CMIDiscordPunishments plugin, WebhookDispatcher dispatcher) {
+    public AdminCommand(CMIDiscordPunishments plugin, DiscordBotDispatcher dispatcher) {
         this.plugin = plugin;
         this.dispatcher = dispatcher;
     }
@@ -81,7 +81,7 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
         PunishmentReport report = PunishmentReport.builder(PunishmentType.TEST)
             .target(plugin.settings().serverName())
             .actor(sender.getName())
-            .reason("Manual webhook test from /cmidp test")
+            .reason("Manual Discord bot test from /cmidp test")
             .detail("Status", "Configuration loaded successfully")
             .build();
         send(sender, NamedTextColor.GRAY, "Sending a test report to Discord...");

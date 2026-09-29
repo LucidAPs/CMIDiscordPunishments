@@ -15,7 +15,7 @@ import com.Zrips.CMI.events.CMIPlayerWarnEvent;
 import com.lucidaps.cmidiscordpunishments.CMIDiscordPunishments;
 import com.lucidaps.cmidiscordpunishments.command.CommandContextStore;
 import com.lucidaps.cmidiscordpunishments.command.TrackedCommand;
-import com.lucidaps.cmidiscordpunishments.discord.WebhookDispatcher;
+import com.lucidaps.cmidiscordpunishments.discord.DiscordBotDispatcher;
 import com.lucidaps.cmidiscordpunishments.model.PunishmentReportFactory;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -32,12 +32,12 @@ public final class CmiPunishmentListener implements Listener {
     private static final String AUTOMATIC_SOURCE = "CMI / Automatic";
 
     private final CMIDiscordPunishments plugin;
-    private final WebhookDispatcher dispatcher;
+    private final DiscordBotDispatcher dispatcher;
     private final CommandContextStore contextStore;
 
     public CmiPunishmentListener(
         CMIDiscordPunishments plugin,
-        WebhookDispatcher dispatcher,
+        DiscordBotDispatcher dispatcher,
         CommandContextStore contextStore
     ) {
         this.plugin = plugin;

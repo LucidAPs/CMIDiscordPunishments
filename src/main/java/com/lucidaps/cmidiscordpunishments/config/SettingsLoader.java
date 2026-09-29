@@ -3,8 +3,6 @@ package com.lucidaps.cmidiscordpunishments.config;
 import com.lucidaps.cmidiscordpunishments.model.PunishmentType;
 import org.bukkit.configuration.file.FileConfiguration;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
@@ -18,8 +16,10 @@ public final class SettingsLoader {
     }
 
     public static PluginSettings load(FileConfiguration config) throws SettingsException {
-        URI webhook = parseWebhook(config.getString("webhook.url", ""));
-        URI avatar = parseOptionalHttpsUri(config.getString("webhook.avatar-url", ""), "webhook.avatar-url");
+        DiscordDestination discord = parseDiscordDestination(
+            config.getString("discord.bot-token", ""),
+            config.getString("discord.channel-id", "")
+        );
 
         int connectTimeout = boundedInt(config, "delivery.connect-timeout-seconds", 5, 1, 60);
         int requestTimeout = boundedInt(config, "delivery.request-timeout-seconds", 10, 1, 120);
@@ -36,9 +36,7 @@ public final class SettingsLoader {
         }
 
         return new PluginSettings(
-            webhook,
-            config.getString("webhook.username", "CMI Punishments"),
-            avatar,
+            discord,
             config.getString("server-name", "Minecraft Server"),
             Duration.ofSeconds(connectTimeout),
             Duration.ofSeconds(requestTimeout),
@@ -52,43 +50,32 @@ public final class SettingsLoader {
         );
     }
 
-    private static URI parseWebhook(String raw) throws SettingsException {
-        if (raw == null || raw.isBlank()) {
+    private static DiscordDestination parseDiscordDestination(String rawToken, String rawChannelId)
+        throws SettingsException {
+        String token = trimToNull(rawToken);
+        String channelId = trimToNull(rawChannelId);
+        if (token == null && channelId == null) {
             return null;
         }
-        URI uri = parseUri(raw, "webhook.url");
-        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
-        boolean discordHost = host.equals("discord.com")
-            || host.endsWith(".discord.com")
-            || host.equals("discordapp.com")
-            || host.endsWith(".discordapp.com");
-        if (!"https".equalsIgnoreCase(uri.getScheme()) || !discordHost || !uri.getPath().contains("/webhooks/")) {
-            throw new SettingsException("webhook.url must be an HTTPS Discord webhook URL");
+        if (token == null || channelId == null) {
+            throw new SettingsException("discord.bot-token and discord.channel-id must either both be set or both be blank");
         }
-        return uri;
-    }
-
-    private static URI parseOptionalHttpsUri(String raw, String path) throws SettingsException {
-        if (raw == null || raw.isBlank()) {
-            return null;
+        if (!channelId.chars().allMatch(Character::isDigit)) {
+            throw new SettingsException("discord.channel-id must be a positive decimal Discord channel ID");
         }
-        URI uri = parseUri(raw, path);
-        if (!"https".equalsIgnoreCase(uri.getScheme())) {
-            throw new SettingsException(path + " must use HTTPS");
-        }
-        return uri;
-    }
-
-    private static URI parseUri(String raw, String path) throws SettingsException {
         try {
-            URI uri = new URI(raw.trim());
-            if (uri.getHost() == null || uri.getUserInfo() != null) {
-                throw new SettingsException(path + " is not a valid absolute URL");
+            long parsed = Long.parseUnsignedLong(channelId);
+            if (parsed == 0L) {
+                throw new NumberFormatException("zero is not a channel ID");
             }
-            return uri;
-        } catch (URISyntaxException exception) {
-            throw new SettingsException(path + " is not a valid URL", exception);
+        } catch (NumberFormatException exception) {
+            throw new SettingsException("discord.channel-id must be a positive decimal Discord channel ID", exception);
         }
+        return new DiscordDestination(token, channelId);
+    }
+
+    private static String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private static int boundedInt(FileConfiguration config, String path, int fallback, int min, int max)

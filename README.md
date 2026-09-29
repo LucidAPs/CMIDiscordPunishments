@@ -2,23 +2,28 @@
 
 [![CI](https://github.com/lucidaps/CMIDiscordPunishments/actions/workflows/ci.yml/badge.svg)](https://github.com/lucidaps/CMIDiscordPunishments/actions/workflows/ci.yml)
 
-A Paper 1.21.11 plugin that listens to CMI's punishment API events and sends successful moderation actions to a Discord webhook.
+A Paper 1.21.11 plugin that listens to CMI's punishment API events and sends successful moderation actions to a Discord channel through a bot account.
 
 ## Requirements
 
 - Paper 1.21.11 on Java 21
 - CMI 9.8.6.4 and its required CMILib version
-- A webhook created in a private Discord staff channel
+- A Discord application with a bot user invited to your server
+- A private staff channel where the bot has `View Channel`, `Send Messages`, and `Embed Links`
 
 ## Build and install
 
 1. Download the plugin JAR from the [latest GitHub release](https://github.com/lucidaps/CMIDiscordPunishments/releases/latest), or run `mvn clean package` with Java 21 to build it yourself.
 2. Copy `CMIDiscordPunishments-1.0.0.jar` into the server's `plugins` directory.
 3. Start the server once, then open `plugins/CMIDiscordPunishments/config.yml`.
-4. Set `webhook.url` and `server-name`.
-5. Run `/cmidp reload`, followed by `/cmidp test`.
+4. In the [Discord Developer Portal](https://discord.com/developers/applications), create an application and bot, then invite the bot to your server.
+5. Enable Developer Mode in Discord, right-click the destination channel, and select **Copy Channel ID**.
+6. Set `discord.bot-token`, `discord.channel-id`, and `server-name` in `config.yml`.
+7. Run `/cmidp reload`, followed by `/cmidp test`.
 
-The webhook URL is a secret. Do not post the configuration publicly. IP-ban reports include the full IP address, so the destination should be restricted to trusted staff.
+The bot token is a secret with control of the bot. Do not commit it or post the configuration publicly; reset the token immediately if it is exposed. IP-ban reports include the full IP address, so the destination channel should be restricted to trusted staff.
+
+The plugin uses Discord's HTTPS API only. It does not open a Gateway connection, require privileged intents, or make the bot appear online.
 
 ## Reported actions
 

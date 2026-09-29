@@ -5,7 +5,7 @@ import com.lucidaps.cmidiscordpunishments.command.CommandContextStore;
 import com.lucidaps.cmidiscordpunishments.config.PluginSettings;
 import com.lucidaps.cmidiscordpunishments.config.SettingsException;
 import com.lucidaps.cmidiscordpunishments.config.SettingsLoader;
-import com.lucidaps.cmidiscordpunishments.discord.WebhookDispatcher;
+import com.lucidaps.cmidiscordpunishments.discord.DiscordBotDispatcher;
 import com.lucidaps.cmidiscordpunishments.listener.CmiPunishmentListener;
 import com.lucidaps.cmidiscordpunishments.listener.MuteCommandListener;
 import org.bukkit.command.PluginCommand;
@@ -17,14 +17,14 @@ import java.util.logging.Level;
 public final class CMIDiscordPunishments extends JavaPlugin {
     private final AtomicReference<PluginSettings> settings =
         new AtomicReference<>(PluginSettings.disabledDefaults());
-    private WebhookDispatcher dispatcher;
+    private DiscordBotDispatcher dispatcher;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
         loadInitialSettings();
 
-        dispatcher = new WebhookDispatcher(settings.get(), getLogger());
+        dispatcher = new DiscordBotDispatcher(settings.get(), getLogger());
         CommandContextStore contextStore = new CommandContextStore();
         getServer().getPluginManager().registerEvents(
             new CmiPunishmentListener(this, dispatcher, contextStore),
@@ -43,8 +43,9 @@ public final class CMIDiscordPunishments extends JavaPlugin {
         command.setExecutor(adminCommand);
         command.setTabCompleter(adminCommand);
 
-        if (settings.get().webhook().isEmpty()) {
-            getLogger().warning("No webhook is configured. Set webhook.url in config.yml, then run /cmidp reload.");
+        if (settings.get().discord().isEmpty()) {
+            getLogger().warning("No Discord bot destination is configured. Set discord.bot-token and "
+                + "discord.channel-id in config.yml, then run /cmidp reload.");
         } else {
             getLogger().info("CMI punishment reporting is enabled for server " + settings.get().serverName() + ".");
         }
@@ -67,9 +68,10 @@ public final class CMIDiscordPunishments extends JavaPlugin {
             PluginSettings loaded = SettingsLoader.load(getConfig());
             settings.set(loaded);
             dispatcher.updateSettings(loaded);
-            return new ReloadResult(true, loaded.webhook().isPresent()
+            return new ReloadResult(true, loaded.discord().isPresent()
                 ? "Configuration reloaded; Discord reporting is enabled."
-                : "Configuration reloaded; reporting remains disabled until webhook.url is set.");
+                : "Configuration reloaded; reporting remains disabled until the Discord bot token and channel ID "
+                    + "are set.");
         } catch (SettingsException | IllegalArgumentException exception) {
             getLogger().log(Level.WARNING, "Configuration reload rejected: " + exception.getMessage());
             return new ReloadResult(false, "Reload failed: " + exception.getMessage());

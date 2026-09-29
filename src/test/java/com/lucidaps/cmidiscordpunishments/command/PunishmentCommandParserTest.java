@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PunishmentCommandParserTest {
-    private final PluginSettings settings = TestSettings.create(null);
+    private final PluginSettings settings = TestSettings.create();
     private final PunishmentCommandParser parser = new PunishmentCommandParser();
 
     @Test

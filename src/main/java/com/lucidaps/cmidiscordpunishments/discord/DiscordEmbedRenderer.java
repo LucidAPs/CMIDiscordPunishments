@@ -20,10 +20,6 @@ public final class DiscordEmbedRenderer {
     public String render(PunishmentReport report, PluginSettings settings) {
         ActionStyle style = settings.style(report.type());
         JsonObject payload = new JsonObject();
-        payload.addProperty("username", TextSanitizer.clean(settings.webhookUsername(), "CMI Punishments", 80));
-        if (settings.webhookAvatarUri() != null) {
-            payload.addProperty("avatar_url", settings.webhookAvatarUri().toString());
-        }
 
         JsonObject allowedMentions = new JsonObject();
         allowedMentions.add("parse", new JsonArray());

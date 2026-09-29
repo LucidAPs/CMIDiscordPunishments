@@ -2,7 +2,6 @@ package com.lucidaps.cmidiscordpunishments.config;
 
 import com.lucidaps.cmidiscordpunishments.model.PunishmentType;
 
-import java.net.URI;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -12,9 +11,7 @@ import java.util.Optional;
 import java.util.Set;
 
 public record PluginSettings(
-    URI webhookUri,
-    String webhookUsername,
-    URI webhookAvatarUri,
+    DiscordDestination discordDestination,
     String serverName,
     Duration connectTimeout,
     Duration requestTimeout,
@@ -27,7 +24,6 @@ public record PluginSettings(
     Set<String> unjailAliases
 ) {
     public PluginSettings {
-        webhookUsername = normalize(webhookUsername, "CMI Punishments");
         serverName = normalize(serverName, "Minecraft Server");
         footer = normalize(footer, "CMI moderation log");
         connectTimeout = connectTimeout == null ? Duration.ofSeconds(5) : connectTimeout;
@@ -38,8 +34,8 @@ public record PluginSettings(
         unjailAliases = immutableAliases(unjailAliases);
     }
 
-    public Optional<URI> webhook() {
-        return Optional.ofNullable(webhookUri);
+    public Optional<DiscordDestination> discord() {
+        return Optional.ofNullable(discordDestination);
     }
 
     public ActionStyle style(PunishmentType type) {
@@ -52,8 +48,6 @@ public record PluginSettings(
             styles.put(type, new ActionStyle(true, type.defaultTitle(), type.defaultColor()));
         }
         return new PluginSettings(
-            null,
-            "CMI Punishments",
             null,
             "Minecraft Server",
             Duration.ofSeconds(5),

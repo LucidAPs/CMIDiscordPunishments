@@ -8,7 +8,7 @@
     <artifactId>CMIDiscordPunishments</artifactId>
     <version>1.0.0</version>
     <name>CMIDiscordPunishments</name>
-    <description>Sends successful CMI punishments to a Discord webhook.</description>
+    <description>Sends successful CMI punishments to a Discord channel using a bot token.</description>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>

@@ -30,9 +30,11 @@ class DiscordEmbedRendererTest {
             .build();
 
         JsonObject payload = JsonParser.parseString(
-            new DiscordEmbedRenderer().render(report, TestSettings.create(null))
+            new DiscordEmbedRenderer().render(report, TestSettings.create())
         ).getAsJsonObject();
         assertEquals(0, payload.getAsJsonObject("allowed_mentions").getAsJsonArray("parse").size());
+        assertFalse(payload.has("username"));
+        assertFalse(payload.has("avatar_url"));
 
         JsonObject embed = payload.getAsJsonArray("embeds").get(0).getAsJsonObject();
         assertEquals("Player Warned", embed.get("title").getAsString());
@@ -57,7 +59,7 @@ class DiscordEmbedRendererTest {
         }
         PunishmentReport report = builder.build();
         JsonObject embed = JsonParser.parseString(
-            new DiscordEmbedRenderer().render(report, TestSettings.create(null))
+            new DiscordEmbedRenderer().render(report, TestSettings.create())
         ).getAsJsonObject().getAsJsonArray("embeds").get(0).getAsJsonObject();
         int totalCharacters = embed.get("title").getAsString().length()
             + embed.getAsJsonObject("footer").get("text").getAsString().length();
