@@ -5,8 +5,8 @@ discord:
   bot-token: ''
   channel-id: ''
 
-# Included in every Discord embed. Set this per server when using the same channel
-# for multiple Minecraft servers.
+# Available as the {server} message placeholder. Set this per server when using
+# the same Discord channel for multiple Minecraft servers.
 server-name: 'Minecraft Server'
 
 delivery:
@@ -15,63 +15,114 @@ delivery:
   max-retries: 3
   queue-capacity: 250
 
-embeds:
-  footer: 'CMI moderation log'
-
-# Each action can be disabled or given a different title/color. Colors must be
-# six-digit RGB values. IP actions intentionally show the complete IP address.
+# Each action can be disabled or given a different title, description, or color.
+# Description entries are rendered as separate lines. A line is omitted when one
+# of its placeholders has no value. Set description: [] for a title-only embed.
+#
+# Placeholders: {target}, {actor}, {reason}, {duration}, {server}, {category},
+# {points}, {jail}, {cell}, {status}
+#
+# Colors must be six-digit RGB values. IP actions intentionally show the complete
+# IP address.
 events:
   test:
     enabled: true
-    title: 'Discord Bot Test'
+    title: '✅ DISCORD BOT TEST'
+    description:
+      - 'Status: {status}'
+      - 'Requested by: {actor}'
     color: '#3498DB'
   ban:
     enabled: true
-    title: 'Player Banned'
+    title: '🔨 {target} BANNED'
+    description:
+      - 'Reason: {reason}'
+      - 'Duration: {duration}'
+      - 'Banned by: {actor}'
     color: '#E74C3C'
   temp-ban:
     enabled: true
-    title: 'Player Temporarily Banned'
+    title: '🔨 {target} TEMP-BANNED'
+    description:
+      - 'Reason: {reason}'
+      - 'Duration: {duration}'
+      - 'Banned by: {actor}'
     color: '#E67E22'
   ip-ban:
     enabled: true
-    title: 'IP Address Banned'
+    title: '⛔ {target} IP-BANNED'
+    description:
+      - 'Reason: {reason}'
+      - 'Duration: {duration}'
+      - 'Banned by: {actor}'
     color: '#C0392B'
   temp-ip-ban:
     enabled: true
-    title: 'IP Address Temporarily Banned'
+    title: '⛔ {target} TEMP IP-BANNED'
+    description:
+      - 'Reason: {reason}'
+      - 'Duration: {duration}'
+      - 'Banned by: {actor}'
     color: '#D35400'
   unban:
     enabled: true
-    title: 'Player Unbanned'
+    title: '✅ {target} UNBANNED'
+    description:
+      - 'Unbanned by: {actor}'
     color: '#2ECC71'
   ip-unban:
     enabled: true
-    title: 'IP Address Unbanned'
+    title: '✅ {target} IP-UNBANNED'
+    description:
+      - 'Unbanned by: {actor}'
     color: '#27AE60'
   kick:
     enabled: true
-    title: 'Player Kicked'
+    title: '👢 {target} KICKED'
+    description:
+      - 'Reason: {reason}'
+      - 'Kicked by: {actor}'
     color: '#F1C40F'
   jail:
     enabled: true
-    title: 'Player Jailed'
+    title: '🔒 {target} JAILED'
+    description:
+      - 'Reason: {reason}'
+      - 'Duration: {duration}'
+      - 'Jailed by: {actor}'
+      - 'Jail: {jail}'
+      - 'Cell: {cell}'
     color: '#E67E22'
   unjail:
     enabled: true
-    title: 'Player Released From Jail'
+    title: '🔓 {target} RELEASED'
+    description:
+      - 'Released by: {actor}'
+      - 'Jail: {jail}'
+      - 'Cell: {cell}'
     color: '#2ECC71'
   mute:
     enabled: true
-    title: 'Player Muted'
+    title: '🔇 {target} MUTED'
+    description:
+      - 'Reason: {reason}'
+      - 'Duration: {duration}'
+      - 'Muted by: {actor}'
     color: '#9B59B6'
   unmute:
     enabled: true
-    title: 'Player Unmuted'
+    title: '🔊 {target} UNMUTED'
+    description:
+      - 'Unmuted by: {actor}'
     color: '#2ECC71'
   warn:
     enabled: true
-    title: 'Player Warned'
+    title: '⚠️ {target} WARNED'
+    description:
+      - 'Reason: {reason}'
+      - 'Warned by: {actor}'
+      - 'Category: {category}'
+      - 'Points: {points}'
     color: '#F39C12'
 
 # Built-in /mute, /unmute, /unjail, their cmi: namespaced forms, and

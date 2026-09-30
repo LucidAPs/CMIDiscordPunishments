@@ -38,6 +38,26 @@ CMI API events are used for all actions that expose one, including actions initi
 
 Cancelled events, commands that fail permission or validation checks, and mute commands that do not change CMI state are not reported. Reports are queued and sent off the server thread. Network errors, Discord rate limits, and server errors are retried in memory; the queue is not persisted across a crash or forced shutdown.
 
+## Message templates
+
+Each entry under `events` controls whether an action is reported, its embed color, and its compact Discord message. `title` is a single template and `description` is an ordered list of lines:
+
+```yaml
+events:
+  mute:
+    enabled: true
+    title: '🔇 {target} MUTED'
+    description:
+      - 'Reason: {reason}'
+      - 'Duration: {duration}'
+      - 'Muted by: {actor}'
+    color: '#9B59B6'
+```
+
+Available placeholders are `{target}`, `{actor}`, `{reason}`, `{duration}`, `{server}`, `{category}`, `{points}`, `{jail}`, `{cell}`, and `{status}`. A description line is left out when any placeholder on that line has no value. Use `description: []` for a title-only embed. Unknown placeholders cause `/cmidp reload` to reject the new configuration and keep the previous working settings.
+
+Durations are displayed in a friendly form such as `3 days` or `2 hours 30 minutes`; permanent punishments display `Permanent`. UUIDs and absolute expiry timestamps are not sent to Discord. IP-ban reports still contain the complete IP address, so use a private staff channel.
+
 ## Administration
 
 - `/cmidp reload` reloads and validates the configuration. An invalid reload leaves the previous working settings active.

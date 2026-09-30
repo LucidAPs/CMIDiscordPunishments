@@ -1,6 +1,7 @@
 package com.lucidaps.cmidiscordpunishments.config;
 
 import com.lucidaps.cmidiscordpunishments.model.PunishmentType;
+import com.lucidaps.cmidiscordpunishments.util.MessageTemplates;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.time.Duration;
@@ -32,7 +33,16 @@ public final class SettingsLoader {
             boolean enabled = config.getBoolean(base + ".enabled", true);
             String title = config.getString(base + ".title", type.defaultTitle());
             int color = parseColor(config.get(base + ".color"), type.defaultColor(), base + ".color");
-            styles.put(type, new ActionStyle(enabled, title, color));
+            List<String> description = description(
+                config,
+                base + ".description",
+                type.defaultDescription()
+            );
+            validateTemplate(title, base + ".title");
+            for (int index = 0; index < description.size(); index++) {
+                validateTemplate(description.get(index), base + ".description[" + index + "]");
+            }
+            styles.put(type, new ActionStyle(enabled, title, color, description));
         }
 
         return new PluginSettings(
@@ -42,7 +52,6 @@ public final class SettingsLoader {
             Duration.ofSeconds(requestTimeout),
             maxRetries,
             queueCapacity,
-            config.getString("embeds.footer", "CMI moderation log"),
             styles,
             aliases(config.getStringList("commands.aliases.mute"), "mute", "cmi:mute"),
             aliases(config.getStringList("commands.aliases.unmute"), "unmute", "cmi:unmute"),
@@ -105,6 +114,32 @@ public final class SettingsLoader {
             return color;
         } catch (NumberFormatException exception) {
             throw new SettingsException(path + " must be an RGB hex color such as #E74C3C", exception);
+        }
+    }
+
+    private static List<String> description(FileConfiguration config, String path, List<String> fallback)
+        throws SettingsException {
+        if (!config.contains(path)) {
+            return fallback;
+        }
+        if (!config.isList(path)) {
+            throw new SettingsException(path + " must be a YAML list of message lines");
+        }
+        List<?> rawLines = config.getList(path, List.of());
+        java.util.ArrayList<String> lines = new java.util.ArrayList<>(rawLines.size());
+        for (Object rawLine : rawLines) {
+            if (!(rawLine instanceof String line)) {
+                throw new SettingsException(path + " must contain only text lines");
+            }
+            lines.add(line);
+        }
+        return List.copyOf(lines);
+    }
+
+    private static void validateTemplate(String template, String path) throws SettingsException {
+        Set<String> unknown = MessageTemplates.unknownPlaceholders(template);
+        if (!unknown.isEmpty()) {
+            throw new SettingsException(path + " contains unknown placeholder(s): " + String.join(", ", unknown));
         }
     }
 

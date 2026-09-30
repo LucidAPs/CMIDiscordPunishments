@@ -1,84 +1,45 @@
 package com.lucidaps.cmidiscordpunishments.discord;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.google.gson.Gson;
 import com.lucidaps.cmidiscordpunishments.config.ActionStyle;
 import com.lucidaps.cmidiscordpunishments.config.PluginSettings;
 import com.lucidaps.cmidiscordpunishments.model.PunishmentReport;
 import com.lucidaps.cmidiscordpunishments.model.PunishmentType;
+import com.lucidaps.cmidiscordpunishments.util.MessageTemplates;
 import com.lucidaps.cmidiscordpunishments.util.TextSanitizer;
 import com.lucidaps.cmidiscordpunishments.util.Timestamps;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class DiscordEmbedRenderer {
-    private static final int MAX_FIELDS = 25;
+    private static final int MAX_TITLE_CHARACTERS = 256;
+    private static final int MAX_DESCRIPTION_CHARACTERS = 4_096;
     private static final int MAX_EMBED_CHARACTERS = 6_000;
     private final Gson gson = new Gson();
 
     public String render(PunishmentReport report, PluginSettings settings) {
         ActionStyle style = settings.style(report.type());
-        JsonObject payload = new JsonObject();
+        Map<String, String> values = templateValues(report, settings);
 
+        String renderedTitle = MessageTemplates.renderTitle(style.title(), values);
+        String fallbackTitle = MessageTemplates.renderTitle(report.type().defaultTitle(), values);
+        String title = TextSanitizer.clean(renderedTitle, fallbackTitle, MAX_TITLE_CHARACTERS);
+        String description = renderDescription(style, values, MAX_EMBED_CHARACTERS - title.length());
+
+        JsonObject payload = new JsonObject();
         JsonObject allowedMentions = new JsonObject();
         allowedMentions.add("parse", new JsonArray());
         payload.add("allowed_mentions", allowedMentions);
 
-        String title = TextSanitizer.clean(style.title(), report.type().defaultTitle(), 256);
-        String footerText = TextSanitizer.clean(settings.footer(), "CMI moderation log", 2_048);
-        EmbedBudget budget = new EmbedBudget(MAX_EMBED_CHARACTERS - title.length() - footerText.length());
-
         JsonObject embed = new JsonObject();
         embed.addProperty("title", title);
         embed.addProperty("color", style.color());
-        embed.addProperty("timestamp", report.occurredAt().toString());
-
-        JsonArray fields = new JsonArray();
-        String target = TextSanitizer.clean(report.target(), "Unknown", 900);
-        if (report.targetUuid() != null) {
-            target += "\nUUID: " + report.targetUuid();
+        if (!description.isBlank()) {
+            embed.addProperty("description", description);
         }
-        addField(fields, budget, "Target", target, true);
-        addField(
-            fields,
-            budget,
-            "Moderator / Source",
-            TextSanitizer.clean(report.actor(), "CMI / Automatic", 1_024),
-            true
-        );
-
-        if (hasExpiry(report.type())) {
-            addField(fields, budget, "Expires", Timestamps.discordExpiry(report.expiresAtEpochMillis()), false);
-        }
-        if (hasReason(report.type()) || (report.reason() != null && !report.reason().isBlank())) {
-            addField(
-                fields,
-                budget,
-                "Reason",
-                TextSanitizer.clean(report.reason(), "Not provided", 1_024),
-                false
-            );
-        }
-        addField(fields, budget, "Server", TextSanitizer.clean(settings.serverName(), "Minecraft Server", 1_024), true);
-
-        for (Map.Entry<String, String> entry : report.details().entrySet()) {
-            if (fields.size() >= MAX_FIELDS || budget.remaining() < 2) {
-                break;
-            }
-            addField(
-                fields,
-                budget,
-                TextSanitizer.clean(entry.getKey(), "Detail", 256),
-                TextSanitizer.clean(entry.getValue(), "Unknown", 1_024),
-                true
-            );
-        }
-        embed.add("fields", fields);
-
-        JsonObject footer = new JsonObject();
-        footer.addProperty("text", footerText);
-        embed.add("footer", footer);
 
         JsonArray embeds = new JsonArray();
         embeds.add(embed);
@@ -86,57 +47,50 @@ public final class DiscordEmbedRenderer {
         return gson.toJson(payload);
     }
 
-    private static void addField(
-        JsonArray fields,
-        EmbedBudget budget,
-        String rawName,
-        String rawValue,
-        boolean inline
-    ) {
-        if (fields.size() >= MAX_FIELDS || budget.remaining() < 2) {
-            return;
+    private static String renderDescription(ActionStyle style, Map<String, String> values, int budget) {
+        StringBuilder description = new StringBuilder();
+        for (String template : style.description()) {
+            String line = MessageTemplates.renderDescriptionLine(template, values);
+            if (line == null || line.isBlank()) {
+                continue;
+            }
+            if (!description.isEmpty()) {
+                description.append('\n');
+            }
+            description.append(line);
         }
-        String name = TextSanitizer.clean(rawName, "Detail", Math.min(256, budget.remaining() - 1));
-        int availableForValue = Math.min(1_024, budget.remaining() - name.length());
-        if (availableForValue < 1) {
-            return;
-        }
-        String value = TextSanitizer.clean(rawValue, "Unknown", availableForValue);
-        JsonObject field = new JsonObject();
-        field.addProperty("name", name);
-        field.addProperty("value", value);
-        field.addProperty("inline", inline);
-        fields.add(field);
-        budget.consume(name.length() + value.length());
+        int maxLength = Math.min(MAX_DESCRIPTION_CHARACTERS, Math.max(0, budget));
+        return TextSanitizer.clean(description.toString(), "", maxLength);
     }
 
-    private static boolean hasExpiry(PunishmentType type) {
+    private static Map<String, String> templateValues(PunishmentReport report, PluginSettings settings) {
+        Map<String, String> values = new LinkedHashMap<>();
+        putClean(values, "target", report.target());
+        putClean(values, "actor", report.actor());
+        putClean(values, "reason", report.reason());
+        putClean(values, "server", settings.serverName());
+        putClean(values, "category", report.details().get("Category"));
+        putClean(values, "points", report.details().get("Points"));
+        putClean(values, "jail", report.details().get("Jail"));
+        putClean(values, "cell", report.details().get("Cell"));
+        putClean(values, "status", report.details().get("Status"));
+        if (hasDuration(report.type())) {
+            values.put("duration", Timestamps.friendlyDuration(report.occurredAt(), report.expiresAtEpochMillis()));
+        }
+        return values;
+    }
+
+    private static void putClean(Map<String, String> values, String name, String rawValue) {
+        String cleaned = TextSanitizer.clean(rawValue, "", MAX_DESCRIPTION_CHARACTERS);
+        if (!cleaned.isBlank()) {
+            values.put(name, cleaned);
+        }
+    }
+
+    private static boolean hasDuration(PunishmentType type) {
         return switch (type) {
             case BAN, TEMP_BAN, IP_BAN, TEMP_IP_BAN, JAIL, MUTE -> true;
             default -> false;
         };
-    }
-
-    private static boolean hasReason(PunishmentType type) {
-        return switch (type) {
-            case TEST, BAN, TEMP_BAN, IP_BAN, TEMP_IP_BAN, KICK, JAIL, MUTE, WARN -> true;
-            default -> false;
-        };
-    }
-
-    private static final class EmbedBudget {
-        private int remaining;
-
-        private EmbedBudget(int remaining) {
-            this.remaining = Math.max(0, remaining);
-        }
-
-        private int remaining() {
-            return remaining;
-        }
-
-        private void consume(int characters) {
-            remaining = Math.max(0, remaining - characters);
-        }
     }
 }

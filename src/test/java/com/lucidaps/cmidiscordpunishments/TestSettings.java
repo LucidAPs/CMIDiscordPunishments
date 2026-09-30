@@ -36,7 +36,12 @@ public final class TestSettings {
     private static PluginSettings create(DiscordDestination destination, int queueCapacity) {
         Map<PunishmentType, ActionStyle> styles = new EnumMap<>(PunishmentType.class);
         for (PunishmentType type : PunishmentType.values()) {
-            styles.put(type, new ActionStyle(true, type.defaultTitle(), type.defaultColor()));
+            styles.put(type, new ActionStyle(
+                true,
+                type.defaultTitle(),
+                type.defaultColor(),
+                type.defaultDescription()
+            ));
         }
         return new PluginSettings(
             destination,
@@ -45,7 +50,6 @@ public final class TestSettings {
             Duration.ofSeconds(2),
             3,
             queueCapacity,
-            "Test footer",
             styles,
             Set.of("mute", "cmi:mute", "silenceplayer"),
             Set.of("unmute", "cmi:unmute"),

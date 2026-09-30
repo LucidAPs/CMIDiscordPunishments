@@ -1,28 +1,92 @@
 package com.lucidaps.cmidiscordpunishments.model;
 
+import java.util.List;
+
 public enum PunishmentType {
-    TEST("test", "Discord Bot Test", 0x3498DB),
-    BAN("ban", "Player Banned", 0xE74C3C),
-    TEMP_BAN("temp-ban", "Player Temporarily Banned", 0xE67E22),
-    IP_BAN("ip-ban", "IP Address Banned", 0xC0392B),
-    TEMP_IP_BAN("temp-ip-ban", "IP Address Temporarily Banned", 0xD35400),
-    UNBAN("unban", "Player Unbanned", 0x2ECC71),
-    IP_UNBAN("ip-unban", "IP Address Unbanned", 0x27AE60),
-    KICK("kick", "Player Kicked", 0xF1C40F),
-    JAIL("jail", "Player Jailed", 0xE67E22),
-    UNJAIL("unjail", "Player Released From Jail", 0x2ECC71),
-    MUTE("mute", "Player Muted", 0x9B59B6),
-    UNMUTE("unmute", "Player Unmuted", 0x2ECC71),
-    WARN("warn", "Player Warned", 0xF39C12);
+    TEST(
+        "test", "✅ DISCORD BOT TEST", 0x3498DB,
+        "Status: {status}",
+        "Requested by: {actor}"
+    ),
+    BAN(
+        "ban", "🔨 {target} BANNED", 0xE74C3C,
+        "Reason: {reason}",
+        "Duration: {duration}",
+        "Banned by: {actor}"
+    ),
+    TEMP_BAN(
+        "temp-ban", "🔨 {target} TEMP-BANNED", 0xE67E22,
+        "Reason: {reason}",
+        "Duration: {duration}",
+        "Banned by: {actor}"
+    ),
+    IP_BAN(
+        "ip-ban", "⛔ {target} IP-BANNED", 0xC0392B,
+        "Reason: {reason}",
+        "Duration: {duration}",
+        "Banned by: {actor}"
+    ),
+    TEMP_IP_BAN(
+        "temp-ip-ban", "⛔ {target} TEMP IP-BANNED", 0xD35400,
+        "Reason: {reason}",
+        "Duration: {duration}",
+        "Banned by: {actor}"
+    ),
+    UNBAN(
+        "unban", "✅ {target} UNBANNED", 0x2ECC71,
+        "Unbanned by: {actor}"
+    ),
+    IP_UNBAN(
+        "ip-unban", "✅ {target} IP-UNBANNED", 0x27AE60,
+        "Unbanned by: {actor}"
+    ),
+    KICK(
+        "kick", "👢 {target} KICKED", 0xF1C40F,
+        "Reason: {reason}",
+        "Kicked by: {actor}"
+    ),
+    JAIL(
+        "jail", "🔒 {target} JAILED", 0xE67E22,
+        "Reason: {reason}",
+        "Duration: {duration}",
+        "Jailed by: {actor}",
+        "Jail: {jail}",
+        "Cell: {cell}"
+    ),
+    UNJAIL(
+        "unjail", "🔓 {target} RELEASED", 0x2ECC71,
+        "Released by: {actor}",
+        "Jail: {jail}",
+        "Cell: {cell}"
+    ),
+    MUTE(
+        "mute", "🔇 {target} MUTED", 0x9B59B6,
+        "Reason: {reason}",
+        "Duration: {duration}",
+        "Muted by: {actor}"
+    ),
+    UNMUTE(
+        "unmute", "🔊 {target} UNMUTED", 0x2ECC71,
+        "Unmuted by: {actor}"
+    ),
+    WARN(
+        "warn", "⚠️ {target} WARNED", 0xF39C12,
+        "Reason: {reason}",
+        "Warned by: {actor}",
+        "Category: {category}",
+        "Points: {points}"
+    );
 
     private final String configKey;
     private final String defaultTitle;
     private final int defaultColor;
+    private final List<String> defaultDescription;
 
-    PunishmentType(String configKey, String defaultTitle, int defaultColor) {
+    PunishmentType(String configKey, String defaultTitle, int defaultColor, String... defaultDescription) {
         this.configKey = configKey;
         this.defaultTitle = defaultTitle;
         this.defaultColor = defaultColor;
+        this.defaultDescription = List.of(defaultDescription);
     }
 
     public String configKey() {
@@ -35,5 +99,9 @@ public enum PunishmentType {
 
     public int defaultColor() {
         return defaultColor;
+    }
+
+    public List<String> defaultDescription() {
+        return defaultDescription;
     }
 }

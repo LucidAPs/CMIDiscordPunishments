@@ -16,6 +16,8 @@ class SettingsLoaderTest {
         config.set("discord.bot-token", "secret-token");
         config.set("discord.channel-id", "123456789012345678");
         config.set("events.ban.color", "#123ABC");
+        config.set("events.ban.title", "Hammer: {target}");
+        config.set("events.ban.description", java.util.List.of("Why: {reason}", "For: {duration}"));
         config.set("commands.aliases.mute", java.util.List.of("/silenceplayer"));
 
         PluginSettings settings = SettingsLoader.load(config);
@@ -24,6 +26,11 @@ class SettingsLoaderTest {
         assertEquals("123456789012345678", settings.discord().orElseThrow().channelId());
         assertFalse(settings.discord().orElseThrow().toString().contains("secret-token"));
         assertEquals(0x123ABC, settings.style(PunishmentType.BAN).color());
+        assertEquals("Hammer: {target}", settings.style(PunishmentType.BAN).title());
+        assertEquals(
+            java.util.List.of("Why: {reason}", "For: {duration}"),
+            settings.style(PunishmentType.BAN).description()
+        );
         assertTrue(settings.muteAliases().contains("silenceplayer"));
         assertTrue(settings.muteAliases().contains("mute"));
     }
@@ -61,6 +68,28 @@ class SettingsLoaderTest {
         YamlConfiguration badRetries = baseConfig();
         badRetries.set("delivery.max-retries", 99);
         assertThrows(SettingsException.class, () -> SettingsLoader.load(badRetries));
+    }
+
+    @Test
+    void usesDefaultDescriptionsAndAcceptsAnExplicitEmptyDescription() throws Exception {
+        YamlConfiguration config = baseConfig();
+        config.set("events.mute.description", java.util.List.of());
+
+        PluginSettings settings = SettingsLoader.load(config);
+
+        assertEquals(PunishmentType.BAN.defaultDescription(), settings.style(PunishmentType.BAN).description());
+        assertTrue(settings.style(PunishmentType.MUTE).description().isEmpty());
+    }
+
+    @Test
+    void rejectsInvalidMessageTemplates() {
+        YamlConfiguration unknownPlaceholder = baseConfig();
+        unknownPlaceholder.set("events.warn.title", "{player} WARNED");
+        assertThrows(SettingsException.class, () -> SettingsLoader.load(unknownPlaceholder));
+
+        YamlConfiguration scalarDescription = baseConfig();
+        scalarDescription.set("events.warn.description", "Reason: {reason}");
+        assertThrows(SettingsException.class, () -> SettingsLoader.load(scalarDescription));
     }
 
     private static YamlConfiguration baseConfig() {

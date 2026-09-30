@@ -59,7 +59,7 @@ class DiscordBotDispatcherTest {
         assertEquals("POST", method.get());
         assertEquals("/api/v10/channels/" + TestSettings.CHANNEL_ID + "/messages", path.get());
         assertEquals("Bot " + TestSettings.BOT_TOKEN, authorization.get());
-        assertTrue(body.get().contains("Player Warned"));
+        assertTrue(body.get().contains("Alice WARNED"));
         assertTrue(body.get().contains("Spam"));
         assertFalse(body.get().contains("username"));
         assertFalse(body.get().contains("avatar_url"));
